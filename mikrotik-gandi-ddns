@@ -1,0 +1,50 @@
+########### Variables ###########
+:local Debug "true"
+:local InetInterface "inet"
+
+:local Domain "domain.tld"
+:local Record "foo"
+:local RecordType "A"
+:local FQDN ""
+
+:local APIKey ""
+:local APIUrl "https://dns.api.gandi.net/api/v5/"
+
+########### Script Variables ###########
+:local ResolvedIP ""
+:local InetIP ""
+:local ResolverAddress "baz.bar"
+
+########### Resolve addresses ###########
+:local CIDR [/ip address get [/ip address find interface=$InetInterface ] address];
+:set InetIP [:pick [:tostr $CIDR] 0 [:find [:tostr $CIDR] "/"]];
+:if ($Debug = "true") do={
+:put $InetIP
+}
+:set FQDN ($Record . ".$Domain");
+:if ($Debug = "true") do={
+:put $FQDN
+}
+:set ResolvedIP [:resolve server=$ResolverAddress $FQDN];
+:if ($Debug = "true") do={
+:put $ResolvedIP
+}
+
+########### Build url ###########
+:local RequestUrl ""
+:set RequestUrl ($APIUrl . "domains/$Domain/records/$Record/$RecordType");
+:if ($Debug = "true") do={
+:put $RequestUrl
+}
+
+########### Set headers and payload ###########
+:local headers "Authorization: Bearer $APIKey, Content-Type: application/json"
+:local data "{\"rrset_ttl\": 300, \"rrset_values\": [\"$InetIP\"]}"
+:if ($Debug = "true") do={
+:put $headers
+:put $data
+}
+########### Execute request ###########
+:if ($InetIP != $ResolvedIP) do={
+/tool fetch mode=https check-certificate=yes url="$RequestUrl" http-method=put http-header-field="$headers" http-data="$data"
+}
