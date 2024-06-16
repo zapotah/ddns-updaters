@@ -2,49 +2,106 @@
 :local Debug "true"
 :local InetInterface "inet"
 
+:local UpdateV4 "true"
+:local UpdateV6 "true"
+
 :local Domain "domain.tld"
 :local Record "foo"
-:local RecordType "A"
-:local FQDN ""
+:local ResolverAddress "bar.baz"
+:local V4RecordType "A"
+:local V6RecordType "AAAA"
 
 :local APIKey ""
 :local APIUrl "https://dns.api.gandi.net/api/v5/"
 
 ########### Script Variables ###########
-:local ResolvedIP ""
-:local InetIP ""
-:local ResolverAddress "baz.bar"
+:global V4ResolvedIP ""
+:global V6ResolvedIP ""
+:global V4InetIP ""
+:global V6InetIP ""
+:local FQDN ""
+:global V4RequestUrl ""
+:global V6RequestUrl ""
+:global V4data ""
+:global V6data ""
 
-########### Resolve addresses ###########
-:local CIDR [/ip address get [/ip address find interface=$InetInterface ] address];
-:set InetIP [:pick [:tostr $CIDR] 0 [:find [:tostr $CIDR] "/"]];
-:if ($Debug = "true") do={
-:put $InetIP
-}
+########### Set FQDN ###########
 :set FQDN ($Record . ".$Domain");
 :if ($Debug = "true") do={
 :put $FQDN
 }
-:set ResolvedIP [:resolve server=$ResolverAddress $FQDN];
+
+########### Resolve addresses ###########
+:if ($UpdateV4 = "true") do={
+:local V4CIDR [/ip address get [/ip address find interface=$InetInterface ] address];
+:set V4InetIP [:pick [:tostr $V4CIDR] 0 [:find [:tostr $V4CIDR] "/"]];
 :if ($Debug = "true") do={
-:put $ResolvedIP
+:put $V4InetIP
+}
+
+:set V4ResolvedIP [:resolve server=$ResolverAddress type=ipv4 $FQDN];
+:if ($Debug = "true") do={
+:put $V4ResolvedIP
+}
+}
+
+:if ($UpdateV6 = "true") do={
+:local V6CIDR [/ipv6 address get [:pick [find dynamic global interface=$InetInterface] 0 ] address];
+:set V6InetIP [:pick [:tostr $V6CIDR] 0 [:find [:tostr $V6CIDR] "/"]];
+:if ($Debug = "true") do={
+:put $V6InetIP
+}
+
+:set V6ResolvedIP [:resolve server=$ResolverAddress type=ipv6 $FQDN];
+:if ($Debug = "true") do={
+:put $V6ResolvedIP
+}
 }
 
 ########### Build url ###########
-:local RequestUrl ""
-:set RequestUrl ($APIUrl . "domains/$Domain/records/$Record/$RecordType");
+:if ($UpdateV4 = "true") do={
+:set V4RequestUrl ($APIUrl . "domains/$Domain/records/$Record/$V4RecordType");
 :if ($Debug = "true") do={
-:put $RequestUrl
+:put $V4RequestUrl
+}
+}
+
+:if ($UpdateV6 = "true") do={
+:set V6RequestUrl ($APIUrl . "domains/$Domain/records/$Record/$V6RecordType");
+:if ($Debug = "true") do={
+:put $V6RequestUrl
+}
 }
 
 ########### Set headers and payload ###########
 :local headers "Authorization: Bearer $APIKey, Content-Type: application/json"
-:local data "{\"rrset_ttl\": 300, \"rrset_values\": [\"$InetIP\"]}"
 :if ($Debug = "true") do={
 :put $headers
-:put $data
 }
+
+:if ($UpdateV4 = "true") do={
+:set V4data "{\"rrset_ttl\": 300, \"rrset_values\": [\"$V4InetIP\"]}"
+:if ($Debug = "true") do={
+:put $V4data
+}
+}
+
+:if ($UpdateV6 = "true") do={
+:set V6data "{\"rrset_ttl\": 300, \"rrset_values\": [\"$V6InetIP\"]}"
+:if ($Debug = "true") do={
+:put $V6data
+}
+}
+
 ########### Execute request ###########
-:if ($InetIP != $ResolvedIP) do={
-/tool fetch mode=https check-certificate=yes url="$RequestUrl" http-method=put http-header-field="$headers" http-data="$data"
+:if ($UpdateV4 = "true") do={
+:if ($V4InetIP != $V4ResolvedIP) do={
+/tool fetch mode=https check-certificate=yes url="$V4RequestUrl" http-method=put http-header-field="$headers" http-data="$V4data"
 }
+}
+:if ($UpdateV6 = "true") do={
+:if ($V6InetIP != $V6ResolvedIP) do={
+/tool fetch mode=https check-certificate=yes url="$V6RequestUrl" http-method=put http-header-field="$headers" http-data="$V6data"
+}
+}
+/ip dns cache flush
