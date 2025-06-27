@@ -84,7 +84,6 @@
         :set CFDomainIDRequestUrl ($APIUrl . "zones?name=$Domain");
         :set $JsonData [/tool fetch mode=https check-certificate=yes url="$CFDomainIDRequestUrl" http-method=get http-header-field="$headers" as-value output=user];
         :set CFDomainID ([:deserialize from=json options=json.no-string-conversion value=($JsonData->"data")]->"result"->0->"id")
-        :put $CFDomainID
         :if ($UpdateV4 = "true") do={
             :set CFV4RecordIDRequestUrl ($APIUrl . "zones/$CFDomainID/dns_records?name=$Record.$Domain&type=$V4RecordType")
             :set $JsonData [/tool fetch mode=https check-certificate=yes url="$CFV4RecordIDRequestUrl" http-method=get http-header-field="$headers" as-value output=user];
